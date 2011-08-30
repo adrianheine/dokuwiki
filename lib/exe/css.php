@@ -118,10 +118,7 @@ function css_out(){
     // place all @import statements at the top of the file
     $css = css_moveimports($css);
 
-    // compress whitespace and comments
-    if($conf['compress']){
-        $css = css_compress($css);
-    }
+    $css = css_process($css);
 
     // embed small images right into the stylesheet
     if($conf['cssdatauri']){
@@ -130,6 +127,20 @@ function css_out(){
     }
 
     http_cached_finish($cache->cache, $css);
+}
+
+function css_process($css) {
+    global $conf;
+    $l = new lessc;
+    $l->keepCommentsLen = -1;
+    if($conf['compress']){
+        $l->keepCommentsLen = 8;
+        $l->indentChar = '';
+        $l->spacingChar = '';
+        $l->newLine = '';
+        $l->shortenColors = true;
+    }
+    return $l->parse($css);
 }
 
 /**
@@ -303,40 +314,6 @@ function css_moveimports($css)
     }
     $newCss .= substr($css, $offset);
     return $imports.$newCss;
-}
-
-/**
- * Very simple CSS optimizer
- *
- * @author Andreas Gohr <andi@splitbrain.org>
- */
-function css_compress($css){
-    //strip comments through a callback
-    $css = preg_replace_callback('#(/\*)(.*?)(\*/)#s','css_comment_cb',$css);
-
-    //strip (incorrect but common) one line comments
-    $css = preg_replace('/(?<!:)\/\/.*$/m','',$css);
-
-    // strip whitespaces
-    $css = preg_replace('![\r\n\t ]+!',' ',$css);
-    $css = preg_replace('/ ?([:;,{}\/]) ?/','\\1',$css);
-
-    // shorten colors
-    $css = preg_replace("/#([0-9a-fA-F]{1})\\1([0-9a-fA-F]{1})\\2([0-9a-fA-F]{1})\\3/", "#\\1\\2\\3",$css);
-
-    return $css;
-}
-
-/**
- * Callback for css_compress()
- *
- * Keeps short comments (< 5 chars) to maintain typical browser hacks
- *
- * @author Andreas Gohr <andi@splitbrain.org>
- */
-function css_comment_cb($matches){
-    if(strlen($matches[2]) > 4) return '';
-    return $matches[0];
 }
 
 //Setup VIM: ex: et ts=4 :
